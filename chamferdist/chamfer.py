@@ -28,6 +28,7 @@ class ChamferDistance(torch.nn.Module):
         bidirectional: Optional[bool] = False,
         reverse: Optional[bool] = False,
         reduction: Optional[str] = "mean",
+        src_weights: Optional[float] = None
     ):
 
         if not isinstance(source_cloud, torch.Tensor):
@@ -93,11 +94,11 @@ class ChamferDistance(torch.nn.Module):
             )
 
         # Forward Chamfer distance (batchsize_source, lengths_source)
-        chamfer_forward = source_nn.dists[..., 0]
+        chamfer_forward = source_nn.dists[..., 0] * src_weights
         chamfer_backward = None
         if reverse or bidirectional:
             # Backward Chamfer distance (batchsize_source, lengths_source)
-            chamfer_backward = target_nn.dists[..., 0]
+            chamfer_backward = target_nn.dists[..., 0] * (-weight_of_whom_nearest_in_src)
 
         chamfer_forward = chamfer_forward.sum(1)  # (batchsize_source,)
         if reverse or bidirectional:
