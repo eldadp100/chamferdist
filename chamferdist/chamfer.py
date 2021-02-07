@@ -13,7 +13,6 @@ from chamferdist import _C
 from torch.autograd import Function
 from torch.autograd.function import once_differentiable
 
-
 _KNN = namedtuple("KNN", "dists idx knn")
 
 
@@ -22,23 +21,16 @@ class ChamferDistance(torch.nn.Module):
         super(ChamferDistance, self).__init__()
 
     def forward(
-        self,
-        source_cloud: torch.Tensor,
-        target_cloud: torch.Tensor,
-        bidirectional: Optional[bool] = False,
-        reverse: Optional[bool] = False,
-        reduction: Optional[str] = "mean",
-        src_weights: Optional[float] = None
+            self,
+            source_cloud: torch.Tensor,
+            target_cloud: torch.Tensor,
+            src_weights,
+            padding_ratio=0.  # how many of the samples are (-1, -1, -1) / total samples?
     ):
 
-        if not isinstance(source_cloud, torch.Tensor):
-            raise TypeError(
-                "Expected input type torch.Tensor. Got {} instead".format(type(pts))
-            )
-        if not isinstance(target_cloud, torch.Tensor):
-            raise TypeError(
-                "Expected input type torch.Tensor. Got {} instead".format(type(pts))
-            )
+        bidirectional = True
+        reverse = True
+        reduction = "mean"
         if source_cloud.device != target_cloud.device:
             raise ValueError(
                 "Source and target clouds must be on the same device. "
@@ -49,12 +41,12 @@ class ChamferDistance(torch.nn.Module):
         batchsize_target, lengths_target, dim_target = target_cloud.shape
 
         lengths_source = (
-            torch.ones(batchsize_source, dtype=torch.long, device=source_cloud.device)
-            * lengths_source
+                torch.ones(batchsize_source, dtype=torch.long, device=source_cloud.device)
+                * lengths_source
         )
         lengths_target = (
-            torch.ones(batchsize_target, dtype=torch.long, device=target_cloud.device)
-            * lengths_target
+                torch.ones(batchsize_target, dtype=torch.long, device=target_cloud.device)
+                * lengths_target
         )
 
         chamfer_dist = None
@@ -94,11 +86,11 @@ class ChamferDistance(torch.nn.Module):
             )
 
         # Forward Chamfer distance (batchsize_source, lengths_source)
-        chamfer_forward = source_nn.dists[..., 0] * src_weights
+        chamfer_forward = source_nn.dists[:, 0] * src_weights / (1.-padding_ratio)
         chamfer_backward = None
         if reverse or bidirectional:
             # Backward Chamfer distance (batchsize_source, lengths_source)
-            chamfer_backward = target_nn.dists[..., 0] * (-weight_of_whom_nearest_in_src)
+            chamfer_backward = target_nn.dists[:, 0] * (-src_weights[target_nn.idx])
 
         chamfer_forward = chamfer_forward.sum(1)  # (batchsize_source,)
         if reverse or bidirectional:
@@ -128,7 +120,7 @@ class _knn_points(Function):
 
     @staticmethod
     def forward(
-        ctx, p1, p2, lengths1, lengths2, K, version, return_sorted: bool = True
+            ctx, p1, p2, lengths1, lengths2, K, version, return_sorted: bool = True
     ):
         """
         K-Nearest neighbors on point clouds.
@@ -199,14 +191,14 @@ class _knn_points(Function):
 
 
 def knn_points(
-    p1: torch.Tensor,
-    p2: torch.Tensor,
-    lengths1: Union[torch.Tensor, None] = None,
-    lengths2: Union[torch.Tensor, None] = None,
-    K: int = 1,
-    version: int = -1,
-    return_nn: bool = False,
-    return_sorted: bool = True,
+        p1: torch.Tensor,
+        p2: torch.Tensor,
+        lengths1: Union[torch.Tensor, None] = None,
+        lengths2: Union[torch.Tensor, None] = None,
+        K: int = 1,
+        version: int = -1,
+        return_nn: bool = False,
+        return_sorted: bool = True,
 ):
     """
     K-Nearest neighbors on point clouds.
@@ -276,7 +268,7 @@ def knn_points(
 
 
 def knn_gather(
-    x: torch.Tensor, idx: torch.Tensor, lengths: Union[torch.Tensor, None] = None
+        x: torch.Tensor, idx: torch.Tensor, lengths: Union[torch.Tensor, None] = None
 ):
     """
     A helper function for knn that allows indexing a tensor x with the indices `idx`
@@ -324,3 +316,15 @@ def knn_gather(
         x_out[mask] = 0.0
 
     return x_out
+
+
+# test
+if __name__ == '__main__':
+    import torch
+
+    a = torch.rand(100, 3).unsqueeze(0)  # tets centers
+    b = torch.rand(100, 3).unsqueeze(0)  # orig pts
+    a_weights = torch.ones(100)
+
+    cd = ChamferDistance()
+    cd.forward(a, b, a_weights)
