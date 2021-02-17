@@ -7,10 +7,10 @@ from torch.utils.cpp_extension import CUDA_HOME, CppExtension, CUDAExtension
 
 
 def get_extensions():
-    include_dirs = ["chamferdist"]
-    main_source = os.path.join("chamferdist", "ext.cpp")
-    sources = [os.path.join("chamferdist", "knn_cpu.cpp")]
-    source_cuda = [os.path.join("chamferdist", "knn.cu")]
+    include_dirs = ["weighted_chamferdist"]
+    main_source = os.path.join("weighted_chamferdist", "ext.cpp")
+    sources = [os.path.join("weighted_chamferdist", "knn_cpu.cpp")]
+    source_cuda = [os.path.join("weighted_chamferdist", "knn.cu")]
     sources = [main_source] + sources
 
     extension = CppExtension
@@ -45,7 +45,7 @@ def get_extensions():
 
     ext_modules = [
         extension(
-            "chamferdist._C",
+            "weighted_chamferdist._C",
             sources,
             include_dirs=include_dirs,
             define_macros=define_macros,
@@ -57,7 +57,7 @@ def get_extensions():
 
 
 # Retrieve __version__ from the package.
-__version__ = runpy.run_path("chamferdist/version.py")["__version__"]
+__version__ = runpy.run_path("weighted_chamferdist/version.py")["__version__"]
 
 if os.getenv("NO_NINJA", "0") == "1":
 
@@ -69,16 +69,16 @@ if os.getenv("NO_NINJA", "0") == "1":
 else:
     BuildExtension = torch.utils.cpp_extension.BuildExtension
 
-package_name = "chamferdist"
+package_name = "weighted_chamferdist"
 long_description = "A pytorch module to compute Chamfer distance \
                     between two point sets (pointclouds)."
 
 setup(
-    name="chamferdist",
+    name="weighted_chamferdist",
     version=__version__,
     description="Pytorch Chamfer distance",
     packages=find_packages(),
-    package_data={'chamferdist': ['*.cu', '*.cuh', '*.h']},
+    package_data={'weighted_chamferdist': ['*.cu', '*.cuh', '*.h']},
     long_description=long_description,
     install_requires=[],
     extras_require={

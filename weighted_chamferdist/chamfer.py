@@ -30,7 +30,7 @@ class ChamferDistance(torch.nn.Module):
 
         bidirectional = True
         reverse = True
-        reduction = "mean"
+        reduction = "sum"
         if source_cloud.device != target_cloud.device:
             raise ValueError(
                 "Source and target clouds must be on the same device. "
@@ -51,10 +51,10 @@ class ChamferDistance(torch.nn.Module):
 
         chamfer_dist = None
 
-        if batchsize_source != batchsize_target:
-            raise ValueError(
-                "Source and target pointclouds must have the same batchsize."
-            )
+        # if batchsize_source != batchsize_target:
+        #     raise ValueError(
+        #         "Source and target pointclouds must have the same batchsize."
+        #     )
         if dim_source != dim_target:
             raise ValueError(
                 "Source and target pointclouds must have the same dimensionality."
@@ -86,31 +86,22 @@ class ChamferDistance(torch.nn.Module):
             )
 
         # Forward Chamfer distance (batchsize_source, lengths_source)
-        chamfer_forward = source_nn.dists[:, 0] * src_weights / (1.-padding_ratio)
-        chamfer_backward = None
-        if reverse or bidirectional:
-            # Backward Chamfer distance (batchsize_source, lengths_source)
-            chamfer_backward = target_nn.dists[:, 0] * (-src_weights[target_nn.idx])
+        # chamfer_forward = source_nn.dists[:, 0] * src_weights / (1.-padding_ratio) # try 1
+        # chamfer_backward = target_nn.dists[:, 0] * (-src_weights[target_nn.idx]) # try 1
+        chamfer_backward = src_weights[target_nn.idx]  # try 2
 
-        chamfer_forward = chamfer_forward.sum(1)  # (batchsize_source,)
-        if reverse or bidirectional:
-            chamfer_backward = chamfer_backward.sum(1)  # (batchsize_target,)
 
         if reduction == "sum":
-            chamfer_forward = chamfer_forward.sum()  # (1,)
-            if reverse or bidirectional:
-                chamfer_backward = chamfer_backward.sum()  # (1,)
+            # chamfer_forward = chamfer_forward.sum()  # (1,)
+            chamfer_backward = chamfer_backward.sum()  # (1,)
         elif reduction == "mean":
-            chamfer_forward = chamfer_forward.mean()  # (1,)
-            if reverse or bidirectional:
-                chamfer_backward = chamfer_backward.mean()  # (1,)
+            # chamfer_forward = chamfer_forward.mean()  # (1,)
+            chamfer_backward = chamfer_backward.mean()  # (1,)
 
-        if bidirectional:
-            return chamfer_forward + chamfer_backward
-        if reverse:
-            return chamfer_backward
 
-        return chamfer_forward
+        # return chamfer_forward + chamfer_backward
+        return chamfer_backward
+
 
 
 class _knn_points(Function):
